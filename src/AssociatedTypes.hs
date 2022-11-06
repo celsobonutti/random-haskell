@@ -2,35 +2,40 @@ module AssociatedTypes where
 
 import Prelude hiding (Functor, Applicative, Monad, pure, (>>=), (<*>), fmap)
 
+type family Wrap f b
+type family Unwrap f
+
+type instance Wrap (Maybe a) b = Maybe b
+type instance Unwrap (Maybe a) = a
+
+type instance Wrap [a] b = [b]
+type instance Unwrap [a] = a
+
 class Functor f where
-  type Wrapped f b
-  type Unwrapped f
-  fmap :: (Unwrapped f -> b) -> f -> Wrapped f b
+  fmap :: (Unwrap f -> b) -> f -> Wrap f b
 
 class Functor' f where
   fmap' :: (a -> b) -> f a -> f b
 
 class Functor t => Applicative t where
-  pure :: (Unwrapped t) -> t
-  (<*>) :: (Wrapped t (Unwrapped t -> b)) -> t -> Wrapped t b
+  pure :: (Unwrap t) -> t
+  (<*>) :: (Wrap t (Unwrap t -> b)) -> t -> Wrap t b
 
 class Applicative m => Monad m where
-  return :: (Unwrapped m) -> m
+  return :: (Unwrap m) -> m
   return = pure
 
-  (>>=) :: m -> (Unwrapped m -> Wrapped m b) -> Wrapped m b
+  (>>=) :: m -> (Unwrap m -> Wrap m b) -> Wrap m b
   {-# MINIMAL (>>=) #-}
 
 class Bifunctor f where
-  type UnwrappedFst f
-  type UnwrappedSnd f
-  type BiWrapped f c d
+  type UnwrapFst f
+  type UnwrapSnd f
+  type BiWrap f c d
 
-  bimap :: (UnwrappedFst f -> c) -> (UnwrappedSnd f -> d) -> f -> BiWrapped f c d
+  bimap :: (UnwrapFst f -> c) -> (UnwrapSnd f -> d) -> f -> BiWrap f c d
 
 instance Functor (Maybe a)  where
-  type Wrapped _ b = Maybe b
-  type Unwrapped (Maybe a) = a
   fmap :: (a -> b) -> Maybe a -> Maybe b
   fmap f = \case
     Nothing -> Nothing
@@ -46,8 +51,6 @@ instance Monad (Maybe a) where
   Nothing >>= _ = Nothing
 
 instance Functor [a] where
-  type Wrapped _ b = [b]
-  type Unwrapped [a] = a
 
   fmap :: (a -> b) -> [a] -> [b]
   fmap _ [] = []
@@ -63,9 +66,9 @@ instance Monad [a] where
   xs >>= f = mconcat (f <$> xs)
 
 instance Bifunctor (Either a b) where
-  type UnwrappedFst (Either a _) = a
-  type UnwrappedSnd (Either _ b) = b
-  type BiWrapped _ c d = Either c d
+  type UnwrapFst (Either a _) = a
+  type UnwrapSnd (Either _ b) = b
+  type BiWrap _ c d = Either c d
 
   bimap :: (a -> c) -> (b -> d) -> Either a b -> Either c d
   bimap f g = \case
