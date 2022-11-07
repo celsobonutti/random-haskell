@@ -1,6 +1,6 @@
 module AssociatedTypes where
 
-import Prelude hiding (Functor, Applicative, Monad, pure, (>>=), (<*>), fmap)
+import Prelude hiding (Functor, Applicative, Monad, pure, (>>=), (<*>), fmap, (<$>))
 
 type family Wrap f b
 type family Unwrap f
@@ -13,12 +13,15 @@ type instance Unwrap [a] = a
 
 class Functor f where
   fmap :: (Unwrap f -> b) -> f -> Wrap f b
+  fmap = (<$>)
 
-class Functor' f where
-  fmap' :: (a -> b) -> f a -> f b
+  (<$>) :: (Unwrap f -> b) -> f -> Wrap f b
+  (<$>) = fmap
+  {-# MINIMAL fmap | (<$>) #-}
 
 class Functor t => Applicative t where
   pure :: (Unwrap t) -> t
+
   (<*>) :: (Wrap t (Unwrap t -> b)) -> t -> Wrap t b
 
 class Applicative m => Monad m where
@@ -28,13 +31,6 @@ class Applicative m => Monad m where
   (>>=) :: m -> (Unwrap m -> Wrap m b) -> Wrap m b
   {-# MINIMAL (>>=) #-}
 
-class Bifunctor f where
-  type UnwrapFst f
-  type UnwrapSnd f
-  type BiWrap f c d
-
-  bimap :: (UnwrapFst f -> c) -> (UnwrapSnd f -> d) -> f -> BiWrap f c d
-
 instance Functor (Maybe a)  where
   fmap :: (a -> b) -> Maybe a -> Maybe b
   fmap f = \case
@@ -43,6 +39,7 @@ instance Functor (Maybe a)  where
 
 instance Applicative (Maybe a) where
   pure = Just
+
   Just f <*> Just x = Just $ f x
   _ <*> _ = Nothing
 
@@ -51,7 +48,6 @@ instance Monad (Maybe a) where
   Nothing >>= _ = Nothing
 
 instance Functor [a] where
-
   fmap :: (a -> b) -> [a] -> [b]
   fmap _ [] = []
   fmap f (x:xs) = f x : fmap f xs
@@ -65,11 +61,26 @@ instance Applicative [a] where
 instance Monad [a] where
   xs >>= f = mconcat (f <$> xs)
 
-instance Bifunctor (Either a b) where
-  type UnwrapFst (Either a _) = a
-  type UnwrapSnd (Either _ b) = b
-  type BiWrap _ c d = Either c d
+type family UnwrapFirst f
+type family UnwrapSecond f
+type family BiWrap f a b
 
+type instance UnwrapFirst (Either a b) = a
+type instance UnwrapSecond (Either a b) = b
+type instance BiWrap (Either a b) c d = Either c d
+
+class Bifunctor f where
+  bimap :: (UnwrapFirst f -> c) -> (UnwrapSecond f -> d) -> f -> BiWrap f c d
+
+  first :: (UnwrapFirst f -> c) -> f -> BiWrap f c (UnwrapSecond f)
+  first f = bimap f id
+
+  second :: (UnwrapSecond f -> d) -> f -> BiWrap f (UnwrapFirst f) d
+  second g = bimap id g
+
+  {-# MINIMAL bimap #-}
+
+instance Bifunctor (Either a b) where
   bimap :: (a -> c) -> (b -> d) -> Either a b -> Either c d
   bimap f g = \case
     Left x -> Left $ f x
