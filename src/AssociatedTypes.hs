@@ -65,6 +65,21 @@ instance Applicative [a] where
 instance Monad [a] where
   xs >>= f = mconcat (f <$> xs)
 
+-- Functor/Applicative for (a -> b)
+
+type instance Unwrap ((->) a b) = b
+type instance Wrap ((->) a b) c = (a -> c)
+
+instance Functor (a -> b) where
+  fmap :: (b -> c) -> (a -> b) -> (a -> c)
+  fmap = (.)
+
+instance Applicative (a -> b) where
+  pure = const
+
+  (<*>) :: (a -> b -> c) -> (a -> b) -> (a -> c)
+  (<*>) f g = \x -> f x (g x)
+
 type family UnwrapFirst f
 type family UnwrapSecond f
 type family BiWrap f a b
